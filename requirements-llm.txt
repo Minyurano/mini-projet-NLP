@@ -1,0 +1,8 @@
+# Recherche dense, re-classement, LLM et interface (Colab avec GPU)
+sentence-transformers>=2.6
+faiss-cpu>=1.7.4
+transformers>=4.40
+accelerate>=0.30
+bitsandbytes>=0.43; platform_system == "Linux"
+gradio>=4.0
+tabulate>=0.9

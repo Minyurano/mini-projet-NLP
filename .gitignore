@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/
+.venv/
+.env
+
+# Base de règles et dépôts sources : reconstruits par scripts/build_dataset.py
+/data/
+# Modèles et index téléchargés / calculés
+/models/
+*.index
+*.pkl
+/results/

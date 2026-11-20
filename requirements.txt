@@ -1,0 +1,5 @@
+# Cœur : base de règles, recherche BM25, réparation et validation (sans GPU)
+yara-python>=4.3
+rank-bm25>=0.2.2
+pandas>=1.5
+numpy>=1.23

@@ -1,0 +1,17 @@
+[project]
+name = "yara-rag"
+version = "2.0.0"
+description = "Génération de règles YARA par RAG (BM25 + embeddings, re-classement, agent auto-correcteur) validées par yara-python"
+requires-python = ">=3.10"
+dependencies = ["yara-python>=4.3", "rank-bm25>=0.2.2", "pandas>=1.5", "numpy>=1.23"]
+
+[project.optional-dependencies]
+llm = ["sentence-transformers>=2.6", "faiss-cpu>=1.7.4", "transformers>=4.40", "accelerate>=0.30",
+       "bitsandbytes>=0.43", "gradio>=4.0", "tabulate>=0.9"]
+dev = ["pytest>=7"]
+
+[tool.setuptools]
+packages = ["yara_rag"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
