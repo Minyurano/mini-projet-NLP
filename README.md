@@ -10,6 +10,12 @@
 ![RAG](https://img.shields.io/badge/RAG-BM25%20%2B%20FAISS%20%2B%20rerank-6E40C9)
 ![LLM](https://img.shields.io/badge/LLM-TinyLlama%20%7C%20Phi--2%20%7C%20Mistral--7B-FF9D00)
 
+<a href="https://minyurano.github.io/mini-projet-NLP/" title="Ouvrir l'application en ligne">
+  <img src="docs/bouton_demo.svg" alt="Cliquez ici pour essayer l'application en ligne" width="620">
+</a>
+
+[Démo en ligne](#démo-en-ligne) · [Résultats](#ce-que-la-version-2-corrige) · [Utilisation](#utilisation) · [Structure](#structure)
+
 </div>
 
 ## Présentation
@@ -18,12 +24,24 @@
 malware. Ce projet assiste l'analyste avec une architecture **RAG** (Retrieval-Augmented Generation) :
 
 1. **Recherche** : les règles les plus proches de la description sont retrouvées dans une base de
-   **~11 000 règles publiques** (11 206 lors de la construction de novembre 2026 : Yara-Rules, signature-base, ReversingLabs).
+   **9 698 règles publiques uniques** (Yara-Rules, signature-base, ReversingLabs ; chiffre de novembre 2026).
 2. **Génération** : un LLM écrit une nouvelle règle en s'inspirant de ces exemples.
 3. **Contrôle** : la règle est corrigée si besoin puis **compilée par yara-python** ; l'agent renvoie
    l'erreur exacte au LLM tant que la règle ne compile pas.
 
 Mini-projet du module de NLP. Domaine : cybersécurité, détection de logiciels malveillants.
+
+## Démo en ligne
+
+[**minyurano.github.io/mini-projet-NLP**](https://minyurano.github.io/mini-projet-NLP/) fonctionne entièrement dans
+le navigateur, sans installation : la description est comparée aux 9 698 règles (BM25), les règles les plus
+proches sont affichées avec leur source, et une règle est **assemblée à partir de leurs chaînes**, avec la règle
+d'origine de chaque chaîne. Cette règle compile toujours (vérifié par les tests).
+
+La démo n'utilise pas de LLM (GitHub Pages n'a pas de GPU) : c'est la version « extractive » du projet
+(`yara_rag/assemble.py`). Son moteur JavaScript (`docs/engine.js`) donne exactement les mêmes résultats que le code
+Python, vérifié sur 134 requêtes et par un test automatique. La génération par LLM et l'agent correcteur
+tournent dans le notebook Colab.
 
 ## Trois architectures RAG
 
@@ -70,8 +88,8 @@ puis compilation avec yara-python
 
 ![Ancien et nouveau post-traitement](docs/results/repair_benchmark.png)
 
-Sur l'ensemble des cas, **1 % des règles compilaient avec l'ancien post-traitement, 98 % avec le nouveau**.
-Les règles déjà correctes de la base restent valides à 99,8 % après passage dans la réparation.
+Sur les 4 240 cas de défauts, **1,2 % des règles compilaient avec l'ancien post-traitement, 98,2 % avec le
+nouveau**. Les règles déjà correctes de la base restent valides à 99,8 % après passage dans la réparation.
 
 ### Qualité de la recherche
 
@@ -80,8 +98,8 @@ Part des 5 règles retrouvées ayant le type de malware attendu, sans GPU (BM25 
 
 | Texte indexé par BM25 | 15 requêtes étiquetées | 500 requêtes leave-one-out |
 |---|---|---|
-| Notebook d'origine : description, `split()` | 77,3 % | 82,2 % |
-| **Version 2 : description ×2 + tags + chaînes des règles** | **77,3 %** | **83,8 %** |
+| Notebook d'origine : description, `split()` | 77,3 % | 74,5 % |
+| **Version 2 : description ×2 + tags + chaînes des règles** | **77,3 %** | **76,5 %** |
 
 Indexer aussi les chaînes des règles (noms d'API, commandes, chemins) permet de répondre à des requêtes
 comme « GetAsyncKeyState » ou « vssadmin », absentes des descriptions. Les mesures avec embeddings,
@@ -115,8 +133,9 @@ pip install -r requirements.txt            # cœur : base, BM25, réparation, va
 pip install -r requirements-llm.txt        # embeddings, LLM, interface (GPU conseillé)
 
 python scripts/build_dataset.py            # base de règles -> data/yara_rules.csv (~1 min)
+python scripts/export_web.py               # base de la démo web -> docs/data/rules.json
 python scripts/evaluate.py --models "TinyLlama (1.1B)" "Mistral-7B Instruct"
-python -m pytest -q                        # 32 tests, sans GPU
+python -m pytest -q                        # 34 tests, sans GPU
 ```
 
 ```python
@@ -140,12 +159,13 @@ print(g.valid, g.rule)
 │   ├── generation.py    LLM Hugging Face (format de chaque modèle, 4 bits, décodage déterministe)
 │   ├── repair.py        extraction et réparation ciblée des règles générées
 │   ├── pipeline.py      prompt, architectures hybride / rerank / agentique
+│   ├── assemble.py      règle extractive sans LLM (référence et démo web)
 │   ├── metrics.py       mesures et évaluation
 │   └── app.py           interface Gradio
-├── scripts/             build_dataset.py, evaluate.py
+├── scripts/             build_dataset.py, export_web.py, evaluate.py
 ├── benchmarks/          mesures sans GPU (réparation, variantes de recherche)
 ├── notebooks/           YARA_RAG_Colab.ipynb ; archive/ : notebook d'origine
-├── docs/results/        résultats des mesures
+├── docs/                démo web (index.html, engine.js, data/rules.json) et résultats des mesures
 └── tests/               tests automatiques (pytest, GitHub Actions)
 ```
 
@@ -160,8 +180,9 @@ print(g.valid, g.rule)
 
 ## Sources des règles
 
-La base est reconstruite localement par `scripts/build_dataset.py` et n'est pas redistribuée ; chaque
-règle garde son lien vers sa source et reste soumise à la licence de son dépôt :
+La base est reconstruite par `scripts/build_dataset.py`. La démo web en publie un extrait (nom, description,
+auteur, lien, chaînes), accompagné des licences dans `docs/data/licenses/` ; chaque règle garde son auteur et
+son lien vers sa source, et reste soumise à la licence de son dépôt :
 [Yara-Rules/rules](https://github.com/Yara-Rules/rules) (GPL-2.0),
 [Neo23x0/signature-base](https://github.com/Neo23x0/signature-base) (Detection Rule License 1.1),
 [ReversingLabs YARA rules](https://github.com/reversinglabs/reversinglabs-yara-rules) (MIT).

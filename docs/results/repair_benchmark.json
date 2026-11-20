@@ -3,72 +3,72 @@
   500,
   null,
   0,
-  498
+  499
  ],
  "texte et balises markdown autour": [
   500,
   0,
   0,
-  498
+  499
  ],
  "sections écrites « meta { »": [
   500,
   0,
-  13,
-  495
+  15,
+  496
  ],
  "valeurs meta sans guillemets": [
-  489,
+  485,
   0,
   0,
-  487
+  484
  ],
  "variable inexistante dans la condition": [
   497,
-  1,
+  3,
   0,
-  495
+  496
  ],
  "règle coupée (accolade finale manquante)": [
   500,
   0,
-  24,
-  498
+  29,
+  499
  ],
  "chaînes entre guillemets simples": [
-  306,
+  308,
   0,
   0,
-  303
+  305
  ],
  "nom de règle invalide": [
   500,
   0,
   0,
-  498
+  499
  ],
  "noms de chaînes en double": [
-  423,
-  54,
+  421,
+  51,
   0,
-  389
+  374
  ],
  "commentaire dans une chaîne hexadécimale": [
-  92,
-  24,
-  6,
-  91
+  112,
+  31,
+  8,
+  111
  ],
  "opérateurs && et ||": [
-  302,
+  300,
   0,
   0,
-  301
+  300
  ],
  "chaîne hexadécimale invalide": [
-  101,
+  117,
   0,
   0,
-  89
+  100
  ]
 }

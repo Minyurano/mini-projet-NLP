@@ -34,7 +34,7 @@ def tokenize(text: str) -> list[str]:
         for p in parts:
             pieces.add(p.lower())
             pieces.update(x.lower() for x in _CAMEL.split(p) if x)
-        out += [p for p in pieces if len(p) > 1 and p not in STOPWORDS]
+        out += sorted(p for p in pieces if len(p) > 1 and p not in STOPWORDS)   # ordre stable
     return out
 
 
@@ -73,7 +73,7 @@ class Retriever:
     # -------------------------------------------------------------- classements
     def sparse_ranking(self, query: str, n: int) -> list[tuple[int, float]]:
         scores = self.bm25.get_scores(tokenize(query))
-        top = np.argsort(-scores)[:n]
+        top = np.argsort(-scores, kind="stable")[:n]          # à égalité : ordre de la base
         return [(int(i), float(scores[i])) for i in top if scores[i] > 0]
 
     def dense_ranking(self, query: str, n: int) -> list[tuple[int, float]]:

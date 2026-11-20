@@ -78,8 +78,10 @@ def build_dataset(repo_dirs: dict[str, Path], out_csv: Path | None = None) -> pd
                     continue
                 if compile_error(r.source(), EXTERNALS) is not None:
                     continue
-                body_norm = re.sub(r"\s+", " ", r.text)
-                h = hashlib.sha1(body_norm.encode()).hexdigest()
+                # Doublon = même nom et mêmes chaînes (la même règle copiée dans deux dépôts,
+                # parfois avec une section meta différente)
+                key = r.name.lower() + "|" + "|".join(sorted(re.sub(r"\s+", " ", d) for _, d in r.strings))
+                h = hashlib.sha1(key.encode()).hexdigest()
                 if h in seen:
                     continue
                 seen.add(h)

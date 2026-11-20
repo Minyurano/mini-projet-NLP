@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Atelier de règles YARA — démo RAG</title>
+<meta name="description" content="Décrivez un comportement malveillant : la démo retrouve les règles YARA les plus proches parmi près de 10 000 règles publiques et assemble une règle prête à l'emploi.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#eef2f7; --surface:#fff; --ink:#0f1d33; --muted:#56657c; --line:#d8dfea;
+  --primary:#1f4e9d; --primary-ink:#fff; --code:#0e1726; --code-ink:#dbe5f3;
+  --amber:#a8650f; --amber-bg:#fbf1e1; --ok:#1d7a46; --ok-bg:#e5f4ea;
+  --radius:10px;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 "IBM Plex Sans",system-ui,sans-serif}
+a{color:var(--primary)}
+:focus-visible{outline:3px solid #f0b429;outline-offset:2px}
+header{background:var(--ink);color:#fff}
+.bar{max-width:1240px;margin:0 auto;padding:22px 24px;display:flex;gap:24px;align-items:flex-end;justify-content:space-between;flex-wrap:wrap}
+header h1{margin:0;font-size:26px;font-weight:700;letter-spacing:-.01em}
+header p{margin:4px 0 0;color:#b9c6da;max-width:640px}
+header nav{display:flex;gap:18px;font-size:14px}
+header nav a{color:#fff;text-decoration:none;border-bottom:1px solid #5d7397;padding-bottom:2px}
+header nav a:hover{border-color:#fff}
+main{max-width:1240px;margin:0 auto;padding:24px;display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:24px;align-items:start}
+@media (max-width:960px){main{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px}
+h2{font-size:17px;margin:0 0 12px}
+label{font-weight:600;font-size:14px;display:block;margin-bottom:6px}
+textarea{width:100%;min-height:104px;resize:vertical;font:inherit;padding:10px 12px;border:1px solid #b9c4d6;border-radius:8px;color:var(--ink)}
+.examples{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 14px}
+.examples button{font:13px "IBM Plex Sans",sans-serif;background:#f3f6fb;border:1px solid var(--line);color:var(--ink);border-radius:999px;padding:4px 11px;cursor:pointer}
+.examples button:hover{border-color:var(--primary);color:var(--primary)}
+.row{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap}
+.row .field{flex:1;min-width:150px}
+select{width:100%;font:inherit;padding:8px 10px;border:1px solid #b9c4d6;border-radius:8px;background:#fff;color:var(--ink)}
+.go{background:var(--primary);color:var(--primary-ink);border:0;border-radius:8px;padding:10px 20px;font:600 15px "IBM Plex Sans",sans-serif;cursor:pointer}
+.go:disabled{opacity:.5;cursor:wait}
+.hint{color:var(--muted);font-size:13px;margin:10px 0 0}
+#status{color:var(--muted);font-size:14px;margin:0 0 4px}
+.sources{margin-top:24px}
+.src{border-top:1px solid var(--line);padding:12px 0;display:grid;grid-template-columns:28px 1fr;gap:4px 10px}
+.src:first-of-type{border-top:0}
+.rank{font:500 13px "IBM Plex Mono",monospace;color:var(--muted);padding-top:2px}
+.src h3{margin:0;font:500 14px "IBM Plex Mono",monospace;word-break:break-all}
+.src p{margin:2px 0 0;color:var(--muted);font-size:14px}
+.chip{display:inline-block;font:600 12px "IBM Plex Sans",sans-serif;color:var(--amber);background:var(--amber-bg);border-radius:4px;padding:1px 7px;margin-right:6px;vertical-align:1px}
+.src .meta{font-size:13px;color:var(--muted)}
+.out{position:sticky;top:16px}
+.out-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+.tools{display:flex;gap:8px}
+.tools button{font:500 14px "IBM Plex Sans",sans-serif;background:#fff;border:1px solid #b9c4d6;border-radius:8px;padding:6px 12px;cursor:pointer;color:var(--ink)}
+.tools button:hover{border-color:var(--primary);color:var(--primary)}
+.badge{font-size:13px;font-weight:600;color:var(--ok);background:var(--ok-bg);border-radius:6px;padding:3px 9px}
+pre{margin:0;background:var(--code);color:var(--code-ink);border-radius:8px;padding:16px 0;overflow:auto;font:13.5px/1.6 "IBM Plex Mono",monospace;min-height:340px}
+pre .ln{display:grid;grid-template-columns:minmax(0,1fr) 30px;gap:10px;padding:0 12px 0 16px}
+pre .ln > span:first-child{white-space:pre-wrap;overflow-wrap:anywhere}
+pre .ln.hot{background:#18263d}
+pre .from{font-size:11px;text-align:center;align-self:start;margin-top:3px}
+pre .from b{display:inline-block;min-width:20px;border:1px solid #3a4e6e;color:#a9bbd6;border-radius:4px;font-weight:500;line-height:16px}
+.src.hot{background:#f3f7ff}
+.k{color:#7cc4ff}.s{color:#f2c46d}.h{color:#9be3b1}.v{color:#e9a8ff}.n{color:#ffb38a}.c{color:#6f84a3}
+.empty{color:#8394ad;padding:0 16px;font-family:"IBM Plex Sans",sans-serif}
+.note{margin-top:14px;font-size:14px;color:var(--muted)}
+.how{max-width:1240px;margin:0 auto;padding:0 24px 32px}
+.how ol{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;padding:0;margin:0;list-style:none;counter-reset:step}
+@media (max-width:860px){.how ol{grid-template-columns:1fr}}
+.how li{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px;counter-increment:step}
+.how li::before{content:counter(step);font:600 13px "IBM Plex Mono",monospace;color:var(--primary);display:block;margin-bottom:4px}
+.how b{display:block;margin-bottom:4px}
+footer{border-top:1px solid var(--line);color:var(--muted);font-size:13px}
+footer div{max-width:1240px;margin:0 auto;padding:18px 24px}
+@media (prefers-reduced-motion:no-preference){pre .ln{transition:background .15s}}
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <div>
+      <h1>Atelier de règles YARA</h1>
+      <p>Décrivez un comportement malveillant : la démo retrouve les règles les plus proches parmi les règles publiques et assemble une règle prête à l'emploi.</p>
+    </div>
+    <nav aria-label="Liens du projet">
+      <a href="https://github.com/Minyurano/mini-projet-NLP">Code source</a>
+      <a href="https://colab.research.google.com/github/Minyurano/mini-projet-NLP/blob/main/notebooks/YARA_RAG_Colab.ipynb">Version avec LLM (Colab)</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section aria-labelledby="q-title">
+    <div class="panel">
+      <h2 id="q-title">Comportement à détecter</h2>
+      <label for="query">Description (en anglais, comme les règles de la base)</label>
+      <textarea id="query" placeholder="Ex. : keylogger capturing keystrokes with GetAsyncKeyState">Ransomware that deletes shadow copies with vssadmin and asks for a Bitcoin ransom</textarea>
+      <div class="examples" id="examples" aria-label="Exemples"></div>
+      <div class="row">
+        <div class="field">
+          <label for="type">Type de malware</label>
+          <select id="type"><option value="">Tous les types</option></select>
+        </div>
+        <div class="field" style="max-width:150px">
+          <label for="k">Règles utilisées</label>
+          <select id="k"><option>3</option><option selected>5</option><option>8</option></select>
+        </div>
+        <button class="go" id="go" disabled>Générer la règle</button>
+      </div>
+      <p class="hint">Raccourci : Ctrl + Entrée. Tout est calculé dans votre navigateur, rien n'est envoyé.</p>
+    </div>
+
+    <div class="panel sources" aria-labelledby="src-title">
+      <h2 id="src-title">Règles de la base utilisées</h2>
+      <p id="status">Chargement de la base de règles…</p>
+      <div id="sources"></div>
+    </div>
+  </section>
+
+  <section class="panel out" aria-labelledby="rule-title">
+    <div class="out-head">
+      <h2 id="rule-title" style="margin:0">Règle proposée <span class="badge" id="badge" hidden>syntaxe garantie</span></h2>
+      <div class="tools">
+        <button id="copy" type="button">Copier</button>
+        <button id="dl" type="button">Télécharger .yar</button>
+      </div>
+    </div>
+    <pre id="rule" aria-live="polite"><div class="empty">La règle apparaîtra ici.</div></pre>
+    <p class="note">Cette démo n'utilise pas de modèle de langage : elle sélectionne, dans les règles retrouvées,
+      les chaînes les plus liées à votre description (le numéro à droite renvoie à la règle d'origine, dans la liste).
+      La version complète, où un LLM écrit la règle et où un agent la corrige jusqu'à ce qu'elle compile,
+      tourne dans le <a href="https://colab.research.google.com/github/Minyurano/mini-projet-NLP/blob/main/notebooks/YARA_RAG_Colab.ipynb">notebook Colab</a>.
+      Testez toujours une règle sur des fichiers sains avant de la déployer.</p>
+  </section>
+</main>
+
+<section class="how" aria-labelledby="how-title">
+  <h2 id="how-title">Comment ça marche</h2>
+  <ol>
+    <li><b>Recherche BM25</b>Votre description est comparée au nom, au type, à la description et aux chaînes (API, commandes, chemins) de chaque règle de la base.</li>
+    <li><b>Sélection des chaînes</b>Les chaînes des règles retrouvées qui partagent le plus de mots avec votre description sont gardées, sans doublon.</li>
+    <li><b>Assemblage</b>La règle reçoit un nom, une section meta avec la référence de la règle la plus proche et une condition « N of them » : elle compile toujours.</li>
+  </ol>
+</section>
+
+<footer>
+  <div>
+    <span id="count"></span> Règles issues de
+    <a href="https://github.com/Yara-Rules/rules">Yara-Rules</a> (<a href="data/licenses/Yara-Rules_rules.txt">GPL-2.0</a>),
+    <a href="https://github.com/Neo23x0/signature-base">signature-base</a> (<a href="data/licenses/Neo23x0_signature-base.txt">Detection Rule License 1.1</a>) et
+    <a href="https://github.com/reversinglabs/reversinglabs-yara-rules">ReversingLabs</a> (<a href="data/licenses/reversinglabs_reversinglabs-yara-rules.txt">MIT</a>) ;
+    chaque règle source garde son auteur et son lien.
+  </div>
+</footer>
+
+<script src="engine.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const EXAMPLES = [
+  "Keylogger capturing keystrokes with GetAsyncKeyState",
+  "PHP webshell executing commands with eval and base64_decode",
+  "Cryptominer using xmrig and stratum to mine Monero",
+  "Mimikatz dumping credentials from lsass",
+  "Downloader fetching a payload with URLDownloadToFile",
+];
+let engine = null, current = null;
+
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+function highlight(line){
+  const re = /("(?:\\.|[^"\\])*")|(\{[0-9A-Fa-f?\s\[\]\-()|~]*\})|([$#@!][A-Za-z0-9_]*\*?)|(\b(?:rule|meta|strings|condition|of|them|and|or|not|any|all|ascii|wide|nocase|fullword|xor|base64|private|uint16|uint32|filesize|at|in)\b)|(\b0x[0-9A-Fa-f]+\b|\b\d+\b)|(\/\/.*$)/g;
+  let out = "", last = 0, m;
+  while ((m = re.exec(line))) {
+    out += esc(line.slice(last, m.index));
+    const cls = m[1] ? "s" : m[2] ? "h" : m[3] ? "v" : m[4] ? "k" : m[5] ? "n" : "c";
+    out += `<span class="${cls}">${esc(m[0])}</span>`;
+    last = re.lastIndex;
+  }
+  return out + esc(line.slice(last));
+}
+
+function renderRule(res){
+  const lines = res.rule.split("\n");
+  let si = 0;
+  $("rule").innerHTML = lines.map(l => {
+    const isStr = /^\s+\$s\d+ = /.test(l);
+    const from = isStr ? res.sources[si++] : "";
+    const n = from ? res.docs.findIndex(d => d.name === from) + 1 : 0;
+    return `<div class="ln"${n ? ` data-src="${n}"` : ""}><span>${highlight(l) || " "}</span><span class="from">${n ? `<b title="Chaîne reprise de la règle ${n} : ${esc(from)}">${n}</b>` : ""}</span></div>`;
+  }).join("");
+  $("badge").hidden = false;
+}
+
+function renderSources(docs){
+  if (!docs.length) { $("sources").innerHTML = ""; $("status").textContent = "Aucune règle ne correspond : essayez d'autres mots (en anglais)."; return; }
+  $("status").textContent = `${docs.length} règles retrouvées, de la plus proche à la moins proche.`;
+  $("sources").innerHTML = docs.map((d, i) => `
+    <article class="src" data-name="${esc(d.name)}">
+      <span class="rank">${i + 1}</span>
+      <div>
+        <h3><span class="chip">${esc(d.type)}</span>${esc(d.name)}</h3>
+        <p>${esc(d.description || "Pas de description.")}</p>
+        <div class="meta">${d.author ? esc(d.author) + " · " : ""}<a href="${esc(d.url)}" target="_blank" rel="noopener">voir la règle source</a></div>
+      </div>
+    </article>`).join("");
+}
+
+function run(){
+  if (!engine) return;
+  const q = $("query").value.trim();
+  if (!q) { $("status").textContent = "Écrivez d'abord une description."; return; }
+  current = engine.generate(q, +$("k").value, $("type").value);
+  renderSources(current.docs);
+  renderRule(current);
+}
+
+$("examples").innerHTML = EXAMPLES.map(e => `<button type="button">${esc(e)}</button>`).join("");
+$("examples").addEventListener("click", e => { if (e.target.tagName === "BUTTON") { $("query").value = e.target.textContent; run(); } });
+$("go").addEventListener("click", run);
+$("query").addEventListener("keydown", e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) run(); });
+$("copy").addEventListener("click", async () => {
+  if (!current) return;
+  try { await navigator.clipboard.writeText(current.rule); $("copy").textContent = "Copiée"; }
+  catch { $("copy").textContent = "Copie impossible"; }
+  setTimeout(() => $("copy").textContent = "Copier", 1500);
+});
+$("dl").addEventListener("click", () => {
+  if (!current) return;
+  const name = (current.rule.match(/^rule (\w+)/) || [, "regle"])[1];
+  const a = Object.assign(document.createElement("a"), {href: URL.createObjectURL(new Blob([current.rule + "\n"], {type: "text/plain"})), download: name + ".yar"});
+  a.click(); URL.revokeObjectURL(a.href);
+});
+$("rule").addEventListener("mouseover", e => {
+  const ln = e.target.closest(".ln[data-src]");
+  document.querySelectorAll(".hot").forEach(x => x.classList.remove("hot"));
+  if (!ln) return;
+  ln.classList.add("hot");
+  const card = document.querySelectorAll(".src")[+ln.dataset.src - 1];
+  if (card) card.classList.add("hot");
+});
+
+fetch("data/rules.json").then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).then(payload => {
+  $("status").textContent = "Préparation de l'index…";
+  setTimeout(() => {
+    engine = new YaraEngine.Engine(payload);
+    const types = [...new Set(engine.rules.map(r => r.type))].sort();
+    $("type").insertAdjacentHTML("beforeend", types.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join(""));
+    $("count").textContent = `${payload.count.toLocaleString("fr-FR")} règles valides.`;
+    $("go").disabled = false;
+    run();
+  }, 20);
+}).catch(err => { $("status").textContent = "Impossible de charger la base de règles (" + err.message + ")."; });
+</script>
+</body>
+</html>
